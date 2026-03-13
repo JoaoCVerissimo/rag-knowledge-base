@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # LLM
     LLM_PROVIDER: str = "ollama"
-    LLM_MODEL: str = "ollama/llama3.2"
+    LLM_MODEL: str = "ollama_chat/llama3.2"
     OLLAMA_API_BASE: str = "http://ollama:11434"
     OPENAI_API_KEY: str = ""
     OPENAI_API_BASE: str = ""
