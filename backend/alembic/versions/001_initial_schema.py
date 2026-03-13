@@ -44,9 +44,7 @@ def upgrade() -> None:
     )
 
     # Documents
-    document_status = sa.Enum(
-        "pending", "processing", "ready", "error", name="document_status"
-    )
+    document_status = sa.Enum("pending", "processing", "ready", "error", name="document_status")
     op.create_table(
         "documents",
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), primary_key=True),

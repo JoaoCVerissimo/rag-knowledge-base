@@ -15,7 +15,7 @@ export default function DocumentsPage() {
   return (
     <div className="p-6">
       <h1 className="mb-6 text-xl font-bold text-gray-900">Documents</h1>
-      <UploadDropzone onUpload={(file) => uploadDocument(file)} />
+      <UploadDropzone onUpload={async (file) => { await uploadDocument(file); }} />
       <div className="mt-6">
         {loading ? (
           <p className="text-gray-500">Loading...</p>

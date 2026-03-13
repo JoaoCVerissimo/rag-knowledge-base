@@ -39,9 +39,7 @@ async def test_get_workspace(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_workspace_not_found(client: AsyncClient):
-    response = await client.get(
-        "/api/v1/workspaces/00000000-0000-0000-0000-000000000000"
-    )
+    response = await client.get("/api/v1/workspaces/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
 
 
@@ -50,9 +48,7 @@ async def test_update_workspace(client: AsyncClient):
     create_resp = await client.post("/api/v1/workspaces", json={"name": "Old"})
     ws_id = create_resp.json()["id"]
 
-    response = await client.patch(
-        f"/api/v1/workspaces/{ws_id}", json={"name": "New"}
-    )
+    response = await client.patch(f"/api/v1/workspaces/{ws_id}", json={"name": "New"})
     assert response.status_code == 200
     assert response.json()["name"] == "New"
 

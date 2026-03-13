@@ -96,9 +96,7 @@ def process_document(self, document_id: str) -> dict:
             )
             session.commit()
 
-            logger.info(
-                "Document %s processed: %d chunks created", doc_id, len(chunks)
-            )
+            logger.info("Document %s processed: %d chunks created", doc_id, len(chunks))
             return {"document_id": str(doc_id), "chunk_count": len(chunks)}
 
         except Exception as exc:

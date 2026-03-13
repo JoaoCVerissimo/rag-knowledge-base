@@ -31,8 +31,6 @@ class CacheService:
             return json.loads(data)
         return None
 
-    async def set_search_results(
-        self, cache_key: str, results: dict, ttl: int = 300
-    ) -> None:
+    async def set_search_results(self, cache_key: str, results: dict, ttl: int = 300) -> None:
         """Cache search results with TTL (default 5 minutes)."""
         await self.redis.set(f"search:{cache_key}", json.dumps(results), ex=ttl)

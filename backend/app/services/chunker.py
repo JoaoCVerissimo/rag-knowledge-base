@@ -70,9 +70,7 @@ def chunk_pages(
     return chunks
 
 
-def _recursive_split(
-    text: str, chunk_size: int, overlap: int
-) -> list[tuple[str, int, int]]:
+def _recursive_split(text: str, chunk_size: int, overlap: int) -> list[tuple[str, int, int]]:
     """Split text recursively by trying separators in order.
 
     Returns list of (chunk_text, start_char, end_char).
