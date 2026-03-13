@@ -43,7 +43,11 @@ def test_empty_text():
 
 def test_paragraph_splitting():
     """Text with paragraphs should split on paragraph boundaries."""
-    text = "Paragraph one with content.\n\nParagraph two with content.\n\nParagraph three with content."
+    text = (
+        "Paragraph one with content.\n\n"
+        "Paragraph two with content.\n\n"
+        "Paragraph three with content."
+    )
     pages = [PageContent(page_number=1, text=text)]
     chunks = chunk_pages(pages, chunk_size=50, chunk_overlap=0)
     assert len(chunks) >= 2

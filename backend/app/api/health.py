@@ -16,7 +16,12 @@ async def health_check(
     db: AsyncSession = Depends(get_db),
 ):
     """Check service health including DB and Redis connectivity."""
-    status = {"status": "ok", "db": False, "redis": False, "embedding_model": settings.EMBEDDING_MODEL}
+    status = {
+        "status": "ok",
+        "db": False,
+        "redis": False,
+        "embedding_model": settings.EMBEDDING_MODEL,
+    }
 
     # Check database
     try:

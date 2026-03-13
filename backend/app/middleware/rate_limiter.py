@@ -1,6 +1,5 @@
 import time
 
-import redis.asyncio as aioredis
 from fastapi import HTTPException, Request
 
 from app.config import settings

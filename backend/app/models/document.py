@@ -1,3 +1,4 @@
+import enum
 import uuid
 from datetime import datetime
 
@@ -6,8 +7,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
-
-import enum
 
 
 class DocumentStatus(str, enum.Enum):
@@ -31,7 +30,11 @@ class Document(Base):
     file_type: Mapped[str] = mapped_column(String(50), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[DocumentStatus] = mapped_column(
-        Enum(DocumentStatus, name="document_status", values_callable=lambda x: [e.value for e in x]),
+        Enum(
+            DocumentStatus,
+            name="document_status",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=DocumentStatus.PENDING,
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.conversation import Conversation, Message, MessageRole
+from app.models.conversation import Message, MessageRole
 from app.services.embedding import EmbeddingService
 from app.services.llm_client import SYSTEM_PROMPT, stream_llm_response
 from app.services.vector_search import ChunkResult, search_similar_chunks

@@ -23,10 +23,14 @@ def _configure_litellm() -> None:
 
 _configure_litellm()
 
-SYSTEM_PROMPT = """You are a helpful assistant answering questions based on the provided context documents.
-Always cite your sources using [1], [2], etc. corresponding to the provided context chunks.
-If the context doesn't contain relevant information, say so clearly.
-Do not make up information not present in the context."""
+SYSTEM_PROMPT = (
+    "You are a helpful assistant answering questions based on the "
+    "provided context documents.\n"
+    "Always cite your sources using [1], [2], etc. corresponding to "
+    "the provided context chunks.\n"
+    "If the context doesn't contain relevant information, say so clearly.\n"
+    "Do not make up information not present in the context."
+)
 
 
 async def stream_llm_response(
