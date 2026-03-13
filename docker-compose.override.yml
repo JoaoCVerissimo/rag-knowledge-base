@@ -1,0 +1,21 @@
+# Dev overrides: hot-reload via volume mounts
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+      - model_cache:/root/.cache
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  worker:
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+      - model_cache:/root/.cache
+
+  frontend:
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public

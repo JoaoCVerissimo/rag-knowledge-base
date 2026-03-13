@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG Knowledge Base — How It Works</title>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #3b82f6;
+      --accent-soft: #eff6ff;
+      --green: #22c55e;
+      --green-soft: #f0fdf4;
+      --purple: #8b5cf6;
+      --purple-soft: #f5f3ff;
+      --amber: #f59e0b;
+      --amber-soft: #fffbeb;
+      --rose: #f43f5e;
+      --rose-soft: #fff1f2;
+      --teal: #14b8a6;
+      --teal-soft: #f0fdfa;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.04);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,.08), 0 4px 8px rgba(0,0,0,.04);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Typography ─────────────────────────────────────────────── */
+    h1 { font-size: 2.75rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; }
+    h2 { font-size: 1.85rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
+    h3 { font-size: 1.25rem; font-weight: 650; line-height: 1.35; }
+    p, li { font-size: 1.05rem; color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: .9em;
+      background: #f1f5f9;
+      padding: 2px 7px;
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(170deg, #eff6ff 0%, #f8fafc 50%, #f5f3ff 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+    .hero-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .hero h1 { margin-bottom: 16px; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { max-width: 560px; margin: 0 auto; font-size: 1.15rem; }
+
+    /* ── Section ────────────────────────────────────────────────── */
+    section { padding: 72px 0; }
+    .section-label {
+      display: inline-block;
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-radius: 999px;
+      padding: 4px 14px;
+      margin-bottom: 12px;
+    }
+    section h2 { margin-bottom: 8px; }
+    section > .container > p { max-width: 640px; margin-bottom: 40px; }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      gap: 20px;
+    }
+    .card-grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      box-shadow: var(--shadow);
+      transition: box-shadow .2s, transform .2s;
+    }
+    .card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .card-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 16px;
+    }
+    .card h3 { margin-bottom: 8px; }
+    .card p { font-size: .95rem; }
+
+    /* ── Pipeline ───────────────────────────────────────────────── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+    .pipeline::before {
+      content: '';
+      position: absolute;
+      left: 31px;
+      top: 40px;
+      bottom: 40px;
+      width: 3px;
+      background: linear-gradient(to bottom, var(--accent), var(--purple), var(--green));
+      border-radius: 3px;
+    }
+    .pipeline-step {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      padding: 20px 0;
+      position: relative;
+    }
+    .step-number {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      color: white;
+      z-index: 1;
+      box-shadow: var(--shadow-md);
+    }
+    .step-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      flex: 1;
+      box-shadow: var(--shadow);
+    }
+    .step-content h3 { margin-bottom: 6px; }
+    .step-content p { font-size: .95rem; }
+
+    /* ── Flow Diagram ──────────────────────────────────────────── */
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      padding: 32px 0;
+    }
+    .flow-node {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 20px;
+      text-align: center;
+      min-width: 120px;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .flow-node .emoji { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+    .flow-node .label { font-size: .82rem; font-weight: 600; color: var(--text); }
+    .flow-node .sub { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+    .flow-arrow {
+      font-size: 1.4rem;
+      color: var(--accent);
+      padding: 0 6px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 700px) {
+      .flow { flex-direction: column; gap: 4px; }
+      .flow-arrow { transform: rotate(90deg); }
+    }
+
+    /* ── Getting Started ───────────────────────────────────────── */
+    .terminal {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: .92rem;
+      line-height: 2;
+      overflow-x: auto;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+    }
+    .terminal::before {
+      content: '';
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .terminal .dots {
+      display: flex; gap: 8px; margin-bottom: 18px;
+    }
+    .terminal .dots span {
+      width: 12px; height: 12px; border-radius: 50%;
+    }
+    .terminal .dots .r { background: #f43f5e; }
+    .terminal .dots .y { background: #f59e0b; }
+    .terminal .dots .g { background: #22c55e; }
+    .terminal .comment { color: #64748b; }
+    .terminal .prompt { color: var(--green); }
+    .terminal .cmd { color: #f1f5f9; }
+
+    /* ── Endpoint Table ────────────────────────────────────────── */
+    .endpoint-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      font-size: .92rem;
+    }
+    .endpoint-table th {
+      background: #f8fafc;
+      padding: 14px 20px;
+      text-align: left;
+      font-weight: 650;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .endpoint-table td {
+      padding: 12px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--text);
+    }
+    .endpoint-table tr:last-child td { border-bottom: none; }
+    .method-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: .78rem;
+      font-weight: 700;
+      font-family: 'SF Mono', monospace;
+    }
+    .method-badge.get { background: #dbeafe; color: #2563eb; }
+    .method-badge.post { background: #d1fae5; color: #059669; }
+    .method-badge.patch { background: #fef3c7; color: #b45309; }
+    .method-badge.delete { background: #fee2e2; color: #dc2626; }
+
+    /* ── Tech Stack Grid ───────────────────────────────────────── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .tech-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      transition: transform .15s;
+    }
+    .tech-item:hover { transform: translateY(-2px); }
+    .tech-item .emoji { font-size: 2rem; margin-bottom: 8px; display: block; }
+    .tech-item .name { font-weight: 650; font-size: .95rem; }
+    .tech-item .role { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Services Diagram ──────────────────────────────────────── */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .service-card {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 20px 22px;
+      border-left: 4px solid;
+      box-shadow: var(--shadow);
+    }
+    .service-card h4 { font-size: .95rem; font-weight: 650; margin-bottom: 4px; }
+    .service-card p { font-size: .82rem; color: var(--muted); }
+    .service-card .port { font-family: monospace; font-size: .78rem; color: var(--accent); font-weight: 600; margin-top: 6px; display: block; }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 48px 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    /* ── Nav ────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(255,255,255,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    nav .inner {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    nav .logo { font-weight: 800; font-size: 1.05rem; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    nav .links { display: flex; gap: 24px; }
+    nav .links a { font-size: .88rem; font-weight: 500; color: var(--muted); transition: color .15s; }
+    nav .links a:hover { color: var(--accent); text-decoration: none; }
+    @media (max-width: 600px) {
+      nav .links { display: none; }
+      h1 { font-size: 2rem; }
+    }
+
+    /* ── Utility ────────────────────────────────────────────────── */
+    .mt-sm { margin-top: 16px; }
+    .divider { height: 1px; background: var(--border); margin: 48px 0; }
+    .highlight { background: linear-gradient(120deg, #bfdbfe 0%, #c4b5fd 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════  NAV  ═══════════════════════════ -->
+<nav>
+  <div class="inner">
+    <div class="logo">
+      <span style="font-size:1.3rem">&#129504;</span> RAG Knowledge Base
+    </div>
+    <div class="links">
+      <a href="#overview">Overview</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#api">API</a>
+      <a href="#get-started">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════  HERO  ══════════════════════════ -->
+<header class="hero">
+  <div class="hero-badge"><span class="dot"></span> 100% Local &middot; Open Source</div>
+  <h1>Your documents,<br><span>answered intelligently.</span></h1>
+  <p>Upload PDFs, Markdown, or text files. Ask questions in natural language. Get accurate answers with exact citations&nbsp;&mdash;&nbsp;all running on your own machine.</p>
+</header>
+
+<!-- ═══════════════════════  OVERVIEW  ═════════════════════════ -->
+<section id="overview">
+  <div class="container">
+    <span class="section-label">Overview</span>
+    <h2>What is this application?</h2>
+    <p>RAG Knowledge Base is an AI-powered assistant that reads your documents and answers questions about them. Instead of searching through files manually, you simply ask a question and the system finds the most relevant passages, then uses an AI model to compose a clear answer&nbsp;&mdash;&nbsp;with references back to the original source.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon" style="background: var(--accent-soft); color: var(--accent);">&#128196;</div>
+        <h3>Upload Documents</h3>
+        <p>Drag and drop PDFs, Markdown files, or plain text. The system accepts the formats you already use.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background: var(--purple-soft); color: var(--purple);">&#128172;</div>
+        <h3>Ask Questions</h3>
+        <p>Type a question in plain English. No special syntax, no keywords&nbsp;&mdash;&nbsp;just ask like you'd ask a colleague.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon" style="background: var(--green-soft); color: var(--green);">&#10003;&#65039;</div>
+        <h3>Get Cited Answers</h3>
+        <p>Every answer includes numbered citations linking back to the exact document passages it drew from.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  HOW IT WORKS  ═════════════════════════ -->
+<section id="how-it-works" style="background: linear-gradient(180deg, #f8fafc, #ffffff);">
+  <div class="container">
+    <span class="section-label">The RAG Pipeline</span>
+    <h2>How does it work?</h2>
+    <p>The system uses a technique called <strong>Retrieval Augmented Generation</strong> (RAG). Here's the journey your document takes, and what happens when you ask a question.</p>
+
+    <h3 style="margin-bottom:20px; margin-top:40px;">Part 1 &mdash; When you upload a document</h3>
+
+    <div class="flow">
+      <div class="flow-node">
+        <span class="emoji">&#128196;</span>
+        <span class="label">Upload File</span>
+        <span class="sub">PDF, Markdown, Text</span>
+      </div>
+      <span class="flow-arrow">&#10132;</span>
+      <div class="flow-node">
+        <span class="emoji">&#128270;</span>
+        <span class="label">Extract Text</span>
+        <span class="sub">Read every page</span>
+      </div>
+      <span class="flow-arrow">&#10132;</span>
+      <div class="flow-node">
+        <span class="emoji">&#9988;&#65039;</span>
+        <span class="label">Split into Chunks</span>
+        <span class="sub">~512 characters each</span>
+      </div>
+      <span class="flow-arrow">&#10132;</span>
+      <div class="flow-node">
+        <span class="emoji">&#129518;</span>
+        <span class="label">Create Embeddings</span>
+        <span class="sub">Numbers that capture meaning</span>
+      </div>
+      <span class="flow-arrow">&#10132;</span>
+      <div class="flow-node" style="border-color: var(--green);">
+        <span class="emoji">&#128451;&#65039;</span>
+        <span class="label">Store in Database</span>
+        <span class="sub">Ready for search</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px; background: var(--accent-soft); border-color: #bfdbfe;">
+      <h3>&#128161; What are embeddings?</h3>
+      <p style="color: var(--text);">Think of embeddings as a way to convert words into coordinates on a map. Sentences with similar meanings end up close together on that map. When you ask a question, the system converts it into the same type of coordinates and finds the closest document passages&nbsp;&mdash;&nbsp;even if you used completely different words.</p>
+    </div>
+
+    <h3 style="margin-bottom:20px; margin-top:48px;">Part 2 &mdash; When you ask a question</h3>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--accent);">1</div>
+        <div class="step-content">
+          <h3>Your question gets embedded</h3>
+          <p>The same embedding model converts your question into coordinates, so it can be compared to the stored document passages.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--purple);">2</div>
+        <div class="step-content">
+          <h3>Nearest passages are found</h3>
+          <p>A lightning-fast vector search scans every stored chunk and returns the 5 most relevant passages in under a millisecond.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--teal);">3</div>
+        <div class="step-content">
+          <h3>A smart prompt is assembled</h3>
+          <p>The system packages your question, the retrieved passages, and the conversation history into a structured prompt for the AI model.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--green);">4</div>
+        <div class="step-content">
+          <h3>The AI composes an answer</h3>
+          <p>The language model reads the context and generates a coherent answer, streaming it word by word to your screen. Each claim is tied to a numbered citation so you can verify it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  FEATURES  ═════════════════════════════ -->
+<section id="features">
+  <div class="container">
+    <span class="section-label">Features</span>
+    <h2>Everything you need</h2>
+    <p>Built for real-world use, not just demos.</p>
+
+    <div class="card-grid cols-2">
+      <div class="card">
+        <h3>&#128193; Workspaces</h3>
+        <p>Organize documents into separate workspaces&nbsp;&mdash;&nbsp;one per project, client, or topic. Each workspace has its own documents and conversations.</p>
+      </div>
+      <div class="card">
+        <h3>&#9889; Streaming Responses</h3>
+        <p>Answers appear word by word in real time, just like a chat app. No waiting for the full response to generate before you see anything.</p>
+      </div>
+      <div class="card">
+        <h3>&#128279; Source Citations</h3>
+        <p>Every answer includes clickable citation markers [1], [2], etc. Expand them to see the exact source passage, filename, and page number.</p>
+      </div>
+      <div class="card">
+        <h3>&#128260; Document Reindexing</h3>
+        <p>Changed your chunking strategy or embedding model? One click to reindex any document without re-uploading it.</p>
+      </div>
+      <div class="card">
+        <h3>&#128737;&#65039; Rate Limiting</h3>
+        <p>Built-in protection against excessive use with a sliding-window rate limiter backed by Redis.</p>
+      </div>
+      <div class="card">
+        <h3>&#127916; Swap AI Models Freely</h3>
+        <p>Switch between a local Ollama model and OpenAI by changing two environment variables. No code changes needed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  ARCHITECTURE  ═════════════════════════ -->
+<section id="architecture" style="background: linear-gradient(180deg, #ffffff, #f8fafc);">
+  <div class="container">
+    <span class="section-label">Architecture</span>
+    <h2>What's running under the hood</h2>
+    <p>Six services work together, all orchestrated by Docker Compose and started with a single command.</p>
+
+    <div class="services-grid">
+      <div class="service-card" style="border-color: var(--accent);">
+        <h4>&#127760; Frontend</h4>
+        <p>Next.js app with TypeScript and Tailwind. The user interface for everything.</p>
+        <span class="port">localhost:3000</span>
+      </div>
+      <div class="service-card" style="border-color: var(--green);">
+        <h4>&#9889; Backend API</h4>
+        <p>Python FastAPI server handling all requests, file uploads, and SSE streaming.</p>
+        <span class="port">localhost:8000</span>
+      </div>
+      <div class="service-card" style="border-color: var(--purple);">
+        <h4>&#9881;&#65039; Worker</h4>
+        <p>Celery background worker that processes documents, chunks text, and generates embeddings.</p>
+        <span class="port">background process</span>
+      </div>
+      <div class="service-card" style="border-color: var(--teal);">
+        <h4>&#128451;&#65039; PostgreSQL + pgvector</h4>
+        <p>Stores all data&nbsp;&mdash;&nbsp;workspaces, documents, chunks with vector embeddings, conversations, and messages.</p>
+        <span class="port">localhost:5432</span>
+      </div>
+      <div class="service-card" style="border-color: var(--rose);">
+        <h4>&#128293; Redis</h4>
+        <p>Task queue broker for background jobs, caching layer, and rate limiting backend.</p>
+        <span class="port">localhost:6379</span>
+      </div>
+      <div class="service-card" style="border-color: var(--amber);">
+        <h4>&#129302; Ollama</h4>
+        <p>Local large language model server. Runs llama3.2 (or any model you choose) entirely on your machine.</p>
+        <span class="port">localhost:11434</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="margin-bottom: 20px;">Tech Stack</h3>
+    <div class="tech-grid">
+      <div class="tech-item">
+        <span class="emoji">&#9883;&#65039;</span>
+        <div class="name">Next.js 14</div>
+        <div class="role">Frontend framework</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#128051;</span>
+        <div class="name">FastAPI</div>
+        <div class="role">Backend API</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#128024;</span>
+        <div class="name">PostgreSQL</div>
+        <div class="role">Database</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#128200;</span>
+        <div class="name">pgvector</div>
+        <div class="role">Vector search</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#128293;</span>
+        <div class="name">Redis</div>
+        <div class="role">Queue &amp; cache</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#129518;</span>
+        <div class="name">sentence-transformers</div>
+        <div class="role">Embeddings</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#129302;</span>
+        <div class="name">Ollama / OpenAI</div>
+        <div class="role">Language model</div>
+      </div>
+      <div class="tech-item">
+        <span class="emoji">&#128230;</span>
+        <div class="name">Docker Compose</div>
+        <div class="role">Infrastructure</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  API REFERENCE  ════════════════════════ -->
+<section id="api">
+  <div class="container">
+    <span class="section-label">API Reference</span>
+    <h2>Backend Endpoints</h2>
+    <p>The backend exposes a clean REST API at <code>/api/v1</code>. Interactive docs are available at <code>/docs</code> when the server is running.</p>
+
+    <table class="endpoint-table">
+      <thead>
+        <tr><th>Method</th><th>Endpoint</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/health</code></td><td>Check if all services are running</td></tr>
+        <tr><td colspan="3" style="padding:8px 20px; background:#f8fafc; font-weight:600; font-size:.82rem; color:var(--muted); letter-spacing:.04em;">WORKSPACES</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/workspaces</code></td><td>Create a new workspace</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/workspaces</code></td><td>List all workspaces</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/workspaces/{id}</code></td><td>Get workspace details</td></tr>
+        <tr><td><span class="method-badge patch">PATCH</span></td><td><code>/workspaces/{id}</code></td><td>Update workspace name or description</td></tr>
+        <tr><td><span class="method-badge delete">DEL</span></td><td><code>/workspaces/{id}</code></td><td>Delete a workspace and all its data</td></tr>
+        <tr><td colspan="3" style="padding:8px 20px; background:#f8fafc; font-weight:600; font-size:.82rem; color:var(--muted); letter-spacing:.04em;">DOCUMENTS</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/workspaces/{id}/documents</code></td><td>Upload a document (PDF, MD, TXT)</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/workspaces/{id}/documents</code></td><td>List documents in a workspace</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/documents/{id}</code></td><td>Get document details and chunk count</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/documents/{id}/status</code></td><td>Check processing status</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/documents/{id}/reindex</code></td><td>Re-process a document from scratch</td></tr>
+        <tr><td><span class="method-badge delete">DEL</span></td><td><code>/documents/{id}</code></td><td>Delete a document and its chunks</td></tr>
+        <tr><td colspan="3" style="padding:8px 20px; background:#f8fafc; font-weight:600; font-size:.82rem; color:var(--muted); letter-spacing:.04em;">SEARCH &amp; CHAT</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/workspaces/{id}/search</code></td><td>Semantic search across documents</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/workspaces/{id}/conversations</code></td><td>Start a new conversation</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/workspaces/{id}/conversations</code></td><td>List conversations</td></tr>
+        <tr><td><span class="method-badge get">GET</span></td><td><code>/conversations/{id}/messages</code></td><td>Get conversation history</td></tr>
+        <tr><td><span class="method-badge post">POST</span></td><td><code>/conversations/{id}/chat</code></td><td>Send a message (streams answer via SSE)</td></tr>
+        <tr><td><span class="method-badge delete">DEL</span></td><td><code>/conversations/{id}</code></td><td>Delete a conversation</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════  GETTING STARTED  ═════════════════════ -->
+<section id="get-started" style="background: linear-gradient(180deg, #f8fafc, #eff6ff);">
+  <div class="container">
+    <span class="section-label">Getting Started</span>
+    <h2>Up and running in 3 minutes</h2>
+    <p>All you need is <strong>Docker</strong> installed on your machine. Everything else runs inside containers.</p>
+
+    <div class="terminal">
+      <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <span class="comment"># 1. Navigate into the project</span><br>
+      <span class="prompt">$</span> <span class="cmd">cd rag-knowledge-base</span><br><br>
+      <span class="comment"># 2. Copy the example environment file</span><br>
+      <span class="prompt">$</span> <span class="cmd">cp .env.example .env</span><br><br>
+      <span class="comment"># 3. Start all 6 services (Postgres, Redis, Backend, Worker, Frontend, Ollama)</span><br>
+      <span class="prompt">$</span> <span class="cmd">make up</span><br><br>
+      <span class="comment"># 4. Download the AI model into Ollama (first time only, ~2 GB)</span><br>
+      <span class="prompt">$</span> <span class="cmd">make pull-model</span><br><br>
+      <span class="comment"># &#10024; That's it! Open http://localhost:3000</span>
+    </div>
+
+    <div class="card-grid cols-3 mt-sm" style="margin-top: 32px;">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:8px;">&#127760;</div>
+        <h3>Frontend</h3>
+        <p><a href="http://localhost:3000">localhost:3000</a></p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:8px;">&#9889;</div>
+        <h3>API Server</h3>
+        <p><a href="http://localhost:8000">localhost:8000</a></p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2rem; margin-bottom:8px;">&#128214;</div>
+        <h3>API Docs</h3>
+        <p><a href="http://localhost:8000/docs">localhost:8000/docs</a></p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="margin-bottom: 16px;">Useful commands</h3>
+    <div class="terminal">
+      <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+      <span class="prompt">$</span> <span class="cmd">make up</span>              <span class="comment"># Start all services</span><br>
+      <span class="prompt">$</span> <span class="cmd">make down</span>            <span class="comment"># Stop all services</span><br>
+      <span class="prompt">$</span> <span class="cmd">make logs</span>            <span class="comment"># Tail logs from every container</span><br>
+      <span class="prompt">$</span> <span class="cmd">make test-backend</span>    <span class="comment"># Run Python test suite</span><br>
+      <span class="prompt">$</span> <span class="cmd">make test-frontend</span>   <span class="comment"># Run frontend test suite</span><br>
+      <span class="prompt">$</span> <span class="cmd">make lint</span>            <span class="comment"># Lint both projects</span><br>
+      <span class="prompt">$</span> <span class="cmd">make db-migrate</span>      <span class="comment"># Run database migrations</span><br>
+      <span class="prompt">$</span> <span class="cmd">make backend-shell</span>   <span class="comment"># Open a shell in the backend container</span><br>
+      <span class="prompt">$</span> <span class="cmd">make pull-model</span>      <span class="comment"># Download the Ollama LLM model</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <h3 style="margin-bottom: 16px;">Switching AI providers</h3>
+    <div class="card-grid cols-2">
+      <div class="card">
+        <h3>&#129302; Ollama (default, fully local)</h3>
+        <p>Runs entirely on your machine. No API keys, no internet needed after model download.</p>
+        <div class="terminal" style="margin-top:12px; padding:16px 20px; font-size:.82rem; line-height:1.8;">
+          LLM_MODEL=ollama/llama3.2<br>
+          OLLAMA_API_BASE=http://ollama:11434
+        </div>
+      </div>
+      <div class="card">
+        <h3>&#9729;&#65039; OpenAI (cloud)</h3>
+        <p>Uses OpenAI's API for higher quality responses. Requires an API key.</p>
+        <div class="terminal" style="margin-top:12px; padding:16px 20px; font-size:.82rem; line-height:1.8;">
+          LLM_MODEL=openai/gpt-4o-mini<br>
+          OPENAI_API_KEY=sk-...
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  USER JOURNEY  ═════════════════════════ -->
+<section id="journey">
+  <div class="container">
+    <span class="section-label">User Journey</span>
+    <h2>Your typical workflow</h2>
+    <p>Here's what a normal session looks like, step by step.</p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--accent);">1</div>
+        <div class="step-content">
+          <h3>Create a workspace</h3>
+          <p>Name it after your project, client, or research topic. Workspaces keep your documents and conversations organized.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--accent);">2</div>
+        <div class="step-content">
+          <h3>Upload your documents</h3>
+          <p>Drag and drop PDFs, Markdown, or text files onto the upload area. Each file is processed automatically in the background&nbsp;&mdash;&nbsp;the status badge shows the progress.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--purple);">3</div>
+        <div class="step-content">
+          <h3>Wait for the green badge</h3>
+          <p>Once a document's badge turns <span style="color:var(--green); font-weight:600;">ready</span>, its contents have been parsed, chunked, and embedded. It's ready for questions.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--teal);">4</div>
+        <div class="step-content">
+          <h3>Start a conversation</h3>
+          <p>Click <strong>New Chat</strong> and type your question. The answer streams in real time with numbered citations.</p>
+        </div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-number" style="background: var(--green);">5</div>
+        <div class="step-content">
+          <h3>Verify with citations</h3>
+          <p>Click any [1], [2] marker to expand the source passage. See exactly which document and page the information came from.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════  FOOTER  ═══════════════════════════════ -->
+<footer>
+  <p>RAG Knowledge Base &middot; Built with FastAPI, Next.js, pgvector, and Ollama</p>
+  <p style="margin-top: 6px; font-size: .82rem;">100% open source &middot; Runs entirely on your machine &middot; No paid services required</p>
+</footer>
+
+</body>
+</html>
